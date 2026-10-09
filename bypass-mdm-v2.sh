@@ -357,6 +357,23 @@ select opt in "${options[@]}"; do
 		grep -q "iprofiles.apple.com" "$hosts_file" 2>/dev/null || echo "0.0.0.0 iprofiles.apple.com" >>"$hosts_file"
 
 		success "MDM domains blocked in hosts file"
+
+		# --- Safety guard: warn about domains that are NOT MDM-related ---
+		# albert.apple.com (activation) and gdmf.apple.com (software update)
+		# are sometimes added by other guides. Blocking albert can leave the
+		# Mac stuck on the activation screen; blocking gdmf breaks Software
+		# Update. Neither is needed for MDM bypass, so warn and offer removal.
+		for bad_domain in albert.apple.com gdmf.apple.com; do
+			if grep -qE "^[^#]*[[:space:]]${bad_domain}([[:space:]]|\$)" "$hosts_file" 2>/dev/null; then
+				warn "$hosts_file blocks ${bad_domain} — this is NOT needed for MDM bypass and can break your Mac (activation / software update)."
+				read -p "Remove the ${bad_domain} block line? (Y/n): " bad_resp
+				if [[ ! "$bad_resp" =~ ^[Nn]$ ]]; then
+					sed -i '' "/^[^#]*[[:space:]]${bad_domain}\([[:space:]]\|\$\)/d" "$hosts_file" \
+						&& success "Removed ${bad_domain} from hosts" \
+						|| warn "Could not edit $hosts_file"
+				fi
+			fi
+		done
 		echo ""
 
 		# Remove configuration profiles
